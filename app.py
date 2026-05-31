@@ -1,336 +1,576 @@
+one
 """
-ExamZen AI - Ultimate Mobile Ecosystem
-Features: Mentor, Fixer, Smart Planner, QuickQuiz, Analytics Vault.
-Powered by Google Gemini 2.5 Flash
+ExamZen AI Study Coach for JEE/NEET Aspirants
+Version 3.0 | Production-Ready | Mobile-First
+Model: gemini-1.5-flash (15 RPM free quota)
 """
 import streamlit as st
 import os
-import json
-from datetime import datetime
+import time
 from google import genai
 from google.genai import types
-# ─── PAGE CONFIGURATION ───────────────────────────────────────────────────────
+
+# ==============================================================================
+# 1. PAGE CONFIGURATION
+# ==============================================================================
 st.set_page_config(
-    page_title="ExamZen | Ultimate AI Coach",
-    page_icon="⚛️",
-    layout="centered",
-    initial_sidebar_state="collapsed",
+   page_title="ExamZen AI Study Coach",
+   page_icon="🎓",
+   layout="centered",
+   initial_sidebar_state="collapsed",
 )
-# ─── PREMIUM CSS & ANIMATIONS ─────────────────────────────────────────────────
+
+# ==============================================================================
+# 2. COMPLETE STYLE SYSTEM
+# ==============================================================================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
+/* FONTS */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300&family=DM+Mono:wght@400;500&display=swap');
+
+/* DESIGN TOKENS */
 :root {
-  --bg: #030712;
-  --surface: #111827;
-  --card: #1F2937;
-  --border: #374151;
-  --primary: #38BDF8;
-  --primary-glow: rgba(56, 189, 248, 0.3);
-  --secondary: #818CF8;
-  --success: #10B981;
-  --warning: #F59E0B;
-  --danger: #EF4444;
-  --text: #F9FAFB;
-  --muted: #9CA3AF;
+   /* Backgrounds */
+   --bg-base: #07090E;
+   --bg-surface: #0C1018;
+   --bg-card: #101520;
+   --bg-elevated: #141C28;
+   --bg-input: #0E1319;
+   
+   /* Borders */
+   --border-soft: rgba(255,255,255,0.06);
+   --border-mid: rgba(255,255,255,0.09);
+   --border-strong: rgba(255,255,255,0.13);
+   
+   /* Brand colors */
+   --blue: #3B82F6;
+   --blue-light: #60A5FA;
+   --blue-glow: rgba(59,130,246,0.15);
+   --indigo: #6366F1;
+   --cyan: #06B6D4;
+   --emerald: #10B981;
+   --amber: #F59E0B;
+   --rose: #F43F5E;
+   
+   /* Gradients */
+   --grad-brand: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%);
+   --grad-emerald: linear-gradient(135deg, #10B981 0%, #06B6D4 100%);
+   --grad-amber: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%);
+   
+   /* Typography */
+   --text-primary: #F0F4FF;
+   --text-secondary: #A8B5CC;
+   --text-muted: #5A6A85;
+   --text-faint: #3A4A62;
+   
+   /* Spacing & Radius */
+   --radius-sm: 8px;
+   --radius-md: 12px;
+   --radius-lg: 16px;
+   --radius-xl: 20px;
 }
-html, body, [class*="css"], .stApp {
-  font-family: 'Plus Jakarta Sans', sans-serif !important;
-  background-color: var(--bg) !important;
-  color: var(--text) !important;
+
+/* RESET & BASE */
+*, *::before, *::after { box-sizing: border-box; }
+html, body, [class*="css"] {
+   font-family: 'Plus Jakarta Sans', apple-system, sans-serif !important;
+   color: var(--text-secondary) !important;
+   background-color: var(--bg-base) !important;
+   -webkit-font-smoothing: antialiased;
 }
-/* Hide Streamlit elements */
-#MainMenu, footer, header, [data-testid="collapsedControl"] { display: none !important; }
-.block-container { padding: 0 1rem 6rem 1rem !important; max-width: 650px !important; margin: 0 auto !important; }
-/* Dynamic Animated Background */
-.stApp::before {
-  content: ''; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background:
-    radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.05), transparent 30%),
-    radial-gradient(circle at 90% 80%, rgba(129, 140, 248, 0.05), transparent 30%);
-  z-index: 0; pointer-events: none;
+
+.stApp {
+   background: var(--bg-base) !important;
+   min-height: 100vh;
 }
-/* Keyframes */
-@keyframes slideUp { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }
-@keyframes popIn { 0% { opacity: 0; transform: scale(0.95); } 100% { opacity: 1; transform: scale(1); } }
-@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-/* Top Header */
-.top-header {
-  position: sticky; top: 0; z-index: 50;
-  background: rgba(3, 7, 18, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  padding: 1rem; margin: 0 -1rem 1.5rem -1rem; border-bottom: 1px solid rgba(255,255,255,0.05);
-  display: flex; justify-content: space-between; align-items: center;
+
+/* Noise texture overlay */
+.stApp::after {
+   content: '';
+   position: fixed;
+   inset: 0;
+   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+   pointer-events: none;
+   z-index: 9999;
+   opacity: 0.4;
 }
-.logo-text { font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, #38BDF8, #818CF8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.status-badge { background: rgba(16, 185, 129, 0.1); color: var(--success); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; border: 1px solid rgba(16, 185, 129, 0.2); display: flex; align-items: center; gap: 5px; }
-.status-badge.error { background: rgba(239, 68, 68, 0.1); color: var(--danger); border-color: rgba(239, 68, 68, 0.2); }
-.pulse-dot { width: 6px; height: 6px; background-color: currentColor; border-radius: 50%; box-shadow: 0 0 8px currentColor; animation: pulse 2s infinite; }
-/* 5-Tab Bottom Navigation */
-.bottom-nav-container {
-  position: fixed; bottom: 0; left: 0; width: 100%; z-index: 100;
-  background: rgba(17, 24, 39, 0.95); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.05);
-  display: flex; justify-content: space-around; padding: 0.6rem 0; padding-bottom: env(safe-area-inset-bottom, 0.6rem);
+
+/* HIDE STREAMLIT CHROME */
+header, [data-testid="collapsedControl"], .stDeployButton, section [data-testid="stSidebar"] {
+   display: none !important;
 }
-.nav-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); padding: 8px; border-radius: 12px; transition: 0.3s ease; width: 20%; }
-.nav-btn.active { color: var(--primary); }
-.nav-btn.active .nav-icon { transform: translateY(-2px); text-shadow: 0 0 15px var(--primary-glow); }
-.nav-icon { font-size: 1.3rem; transition: 0.3s; }
-.nav-text { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-/* Invisible Click Overlay for Nav */
-.click-overlay { position: fixed; bottom: 0; left: 0; width: 100%; height: 75px; z-index: 101; display: flex; justify-content: space-around; }
-.click-overlay .stButton, .click-overlay .stButton > button { width: 100% !important; height: 100% !important; opacity: 0 !important; cursor: pointer !important; margin: 0!important; padding: 0!important; }
-/* Glass Cards & Containers */
-.glass-card { background: rgba(31, 41, 55, 0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem; animation: slideUp 0.5s ease-out forwards; backdrop-filter: blur(10px); }
-.glass-card:hover { border-color: rgba(56, 189, 248, 0.4); transform: translateY(-2px); transition: 0.3s; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-.hero-title { font-family: 'Space Grotesk', sans-serif; font-size: 2.6rem; font-weight: 700; line-height: 1.1; margin-bottom: 1rem; color: white; }
-.hero-subtitle { color: var(--muted); font-size: 1.05rem; line-height: 1.5; margin-bottom: 1.5rem; }
-/* Stats Grid */
-.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; margin-bottom: 1.5rem; animation: popIn 0.5s ease-out forwards; }
-.stat-box { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 1rem 0.5rem; text-align: center; }
-.stat-num { font-family: 'Space Grotesk', sans-serif; font-size: 1.8rem; font-weight: 700; color: var(--text); }
-.stat-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; margin-top: 4px; }
-/* Inputs and Buttons */
-.stTextArea textarea, .stTextInput input, .stSelectbox div[data-baseweb="select"] { background: rgba(17, 24, 39, 0.8) !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 12px !important; color: white !important; padding: 0.75rem !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
-.stTextArea textarea:focus, .stTextInput input:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px var(--primary-glow) !important; }
-.stButton > button { background: linear-gradient(135deg, var(--primary), var(--secondary)) !important; color: #000 !important; border: none !important; border-radius: 12px !important; font-weight: 700 !important; padding: 0.75rem !important; width: 100% !important; transition: 0.3s !important; text-transform: uppercase; letter-spacing: 0.5px; }
-.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(56, 189, 248, 0.4) !important; }
-/* Chat Bubbles */
-.chat-user { background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); color: white; padding: 1rem; border-radius: 16px 16px 4px 16px; margin: 0.5rem 0 0.5rem auto; max-width: 85%; font-size: 0.95rem; animation: slideUp 0.3s ease-out; }
-.chat-ai { background: rgba(31, 41, 55, 0.5); border: 1px solid rgba(255,255,255,0.05); color: var(--text); padding: 1rem; border-radius: 4px 16px 16px 16px; margin: 0.5rem auto 0.5rem 0; max-width: 90%; font-size: 0.95rem; line-height: 1.6; animation: slideUp 0.3s ease-out; }
-.chat-avatar { font-size: 1.2rem; margin-right: 8px; vertical-align: middle; }
-/* Interactive Quiz Cards */
-.quiz-card { background: rgba(31,41,55,0.7); border-radius: 16px; border: 1px solid var(--border); padding: 1.5rem; margin-bottom: 1.5rem; }
-.quiz-badge { background: rgba(129, 140, 248, 0.15); color: var(--secondary); padding: 4px 10px; border-radius: 8px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; margin-bottom: 1rem; display: inline-block; }
-.stRadio > div { background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
-hr { border-color: rgba(255,255,255,0.1); margin: 2rem 0; }
+
+/* LAYOUT CONTAINER */
+.block-container {
+   padding: 0 1rem 2rem 1rem !important;
+   max-width: 540px !important;
+   margin: 0 auto !important;
+}
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+   from { opacity: 0; transform: translateY(16px); }
+   to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+   from { opacity: 0; }
+   to { opacity: 1; }
+}
+@keyframes shimmerPulse {
+   0%, 100% { opacity: 0.6; }
+   50% { opacity: 1; }
+}
+
+/* HEADER STYLE */
+.ez-header {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   padding: 1rem 0 0.5rem;
+   margin-bottom: 0.5rem;
+   animation: fadeIn 0.4s ease;
+}
+.ez-logo {
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+}
+.ez-logo-icon {
+   width: 34px; height: 34px;
+   background: var(--grad-brand);
+   border-radius: 10px;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   font-size: 1rem;
+   box-shadow: 0 4px 14px rgba(59,130,246,0.35);
+}
+.ez-logo-text {
+   font-size: 1.1rem;
+   font-weight: 800;
+   color: var(--text-primary) !important;
+   letter-spacing: -0.03em;
+}
+.ez-logo-text span {
+   background: var(--grad-brand);
+   -webkit-background-clip: text;
+   -webkit-text-fill-color: transparent;
+   background-clip: text;
+}
+.ez-status {
+   display: flex;
+   align-items: center;
+   gap: 0.35rem;
+   background: rgba(16,185,129,0.08);
+   border: 1px solid rgba(16,185,129,0.18);
+   border-radius: 20px;
+   padding: 0.3rem 0.7rem;
+   font-size: 0.72rem;
+   font-weight: 600;
+   color: var(--emerald);
+   letter-spacing: 0.04em;
+}
+.ez-status-dot {
+   width: 6px; height: 6px;
+   background: var(--emerald);
+   border-radius: 50%;
+   animation: shimmerPulse 2s infinite;
+}
+.ez-status-err {
+   background: rgba(244,63,94,0.08);
+   border-color: rgba(244,63,94,0.18);
+   color: var(--rose);
+}
+.ez-status-err .ez-status-dot {
+   background: var(--rose);
+}
+
+/* TAB BAR CUSTOMIZATION */
+.stTabs { margin-top: 0.5rem; }
+.stTabs [data-baseweb="tab-list"] {
+   background: var(--bg-surface) !important;
+   border: 1px solid var(--border-soft) !important;
+   border-radius: var(--radius-lg) !important;
+   padding: 4px !important;
+   gap: 2px !important;
+   overflow-x: auto !important;
+}
+.stTabs [data-baseweb="tab"] {
+   background: transparent !important;
+   border: none !important;
+   border-radius: var(--radius-md) !important;
+   color: var(--text-muted) !important;
+   font-size: 0.8rem !important;
+   font-weight: 600 !important;
+   padding: 0.5rem 0.9rem !important;
+   transition: all 0.2s ease !important;
+}
+.stTabs [data-baseweb="tab"]:hover {
+   color: var(--text-secondary) !important;
+   background: var(--bg-elevated) !important;
+}
+.stTabs [aria-selected="true"] {
+   background: var(--grad-brand) !important;
+   color: #FFFFFF !important;
+   box-shadow: 0 2px 12px rgba(59,130,246,0.3) !important;
+}
+.stTabs [data-baseweb="tab-border"] { display: none !important; }
+
+/* UTILITY CLASSES */
+.sec-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem; }
+.sec-title { font-size: 1.5rem; font-weight: 800; color: var(--text-primary) !important; letter-spacing: -0.02em; line-height: 1.2; margin-bottom: 0.35rem; }
+.sec-sub { font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.2rem; font-weight: 300; }
+
+.hero-wrap { text-align: center; padding: 1.8rem 0.5rem 1rem; animation: fadeUp 0.5s ease; }
+.hero-badge { display: inline-flex; align-items: center; gap: 0.4rem; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: var(--blue-light); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.3rem 0.85rem; border-radius: 20px; margin-bottom: 1.1rem; }
+.hero-h1 { font-size: 2.2rem; font-weight: 800; color: var(--text-primary) !important; letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 0.7rem; }
+.hero-h1 .grad { background: linear-gradient(135deg, #60A5FA, #818CF8, #A78BFA); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.hero-p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.65; max-width: 340px; margin: 0 auto 1.5rem; font-weight: 300; }
+.hero-pills { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
+.hero-pill { background: var(--bg-elevated); border: 1px solid var(--border-soft); border-radius: 20px; padding: 0.3rem 0.8rem; font-size: 0.75rem; font-weight: 500; color: var(--text-secondary); }
+
+.fcard-grid { display: flex; flex-direction: column; gap: 0.75rem; margin: 1.5rem 0 1rem; }
+.fcard { background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: var(--radius-xl); padding: 1.1rem 1.2rem; display: flex; align-items: center; gap: 1rem; transition: all 0.22s ease; animation: fadeUp 0.5s ease both; position: relative; }
+.fcard::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 3px 0 0 3px; }
+.fcard-1::before { background: var(--blue); }
+.fcard-2::before { background: var(--indigo); }
+.fcard-3::before { background: var(--emerald); }
+.fcard:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+.fcard-icon-wrap { width: 46px; height: 46px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+.fcard-1 .fcard-icon-wrap { background: rgba(59,130,246,0.12); }
+.fcard-2 .fcard-icon-wrap { background: rgba(99,102,241,0.12); }
+.fcard-3 .fcard-icon-wrap { background: rgba(16,185,129,0.12); }
+.fcard-content { flex: 1; min-width: 0; }
+.fcard-tag { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.2rem; }
+.fcard-1 .fcard-tag { color: var(--blue-light); }
+.fcard-2 .fcard-tag { color: #818CF8; }
+.fcard-3 .fcard-tag { color: var(--emerald); }
+.fcard-name { font-size: 0.95rem; font-weight: 700; color: var(--text-primary) !important; margin-bottom: 0.25rem; }
+.fcard-desc { font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; }
+.fcard-chevron { color: var(--text-faint); font-size: 1rem; flex-shrink: 0; }
+
+.info-card { background: rgba(59,130,246,0.05); border: 1px solid rgba(59,130,246,0.12); border-radius: var(--radius-lg); padding: 0.95rem 1.1rem; font-size: 0.83rem; color: var(--text-muted); line-height: 1.65; margin: 1rem 0; }
+.info-card b { color: var(--text-secondary); font-weight: 600; }
+.info-card .info-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--blue-light); margin-bottom: 0.5rem; }
+
+.alert-rate { background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.2); border-radius: var(--radius-lg); padding: 1.1rem 1.2rem; margin: 1rem 0; }
+.alert-rate-title { font-size: 0.88rem; font-weight: 700; color: var(--amber); margin-bottom: 0.4rem; }
+.alert-rate-body { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; }
+.alert-rate-body b { color: var(--text-secondary); }
+
+.alert-err { background: rgba(244,63,94,0.06); border: 1px solid rgba(244,63,94,0.15); border-radius: var(--radius-lg); padding: 0.9rem 1.1rem; font-size: 0.83rem; color: #FB7185; margin: 1rem 0; }
+.alert-err-title { font-weight: 700; margin-bottom: 0.25rem; }
+
+.result-wrap { background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: var(--radius-xl); padding: 1.3rem; margin-top: 1.1rem; animation: fadeUp 0.4s ease; }
+.result-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; padding-bottom: 0.7rem; border-bottom: 1px solid var(--border-soft); }
+.result-icon { width: 10px; height: 10px; background: var(--emerald); border-radius: 50%; }
+.result-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--emerald); }
+
+/* CHAT FEED */
+.chat-feed { display: flex; flex-direction: column; gap: 0.9rem; margin: 0.5rem 0 1rem; }
+.msg-row-user { display: flex; justify-content: flex-end; animation: fadeUp 0.3s ease; margin-bottom: 0.5rem; }
+.msg-bubble-user { background: var(--grad-brand); color: #FFFFFF; border-radius: 18px 18px 4px 18px; padding: 0.8rem 1rem; max-width: 82%; font-size: 0.88rem; line-height: 1.6; box-shadow: 0 4px 16px rgba(59,130,246,0.2); word-wrap: break-word; }
+.msg-row-ai { display: flex; align-items: flex-start; gap: 0.6rem; animation: fadeUp 0.3s ease; margin-bottom: 0.5rem; }
+.msg-avatar { width: 30px; height: 30px; background: var(--grad-brand); border-radius: 9px; flex-shrink: 0; box-shadow: 0 2px 10px rgba(59,130,246,0.25); }
+.msg-bubble-ai-wrap { background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: 4px 18px 18px 18px; padding: 0.9rem 1rem; max-width: 85%; width: 100%; }
+
+/* INPUT EXTRAS OVERRIDE */
+.stTextArea label, .stTextInput label, .stSelectbox label, .stNumberInput label, .stSlider label { font-size: 0.75rem !important; font-weight: 700 !important; letter-spacing: 0.08em !important; text-transform: uppercase !important; color: var(--text-muted) !important; }
+.stTextArea textarea, .stTextInput input { background: var(--bg-input) !important; border: 1px solid var(--border-soft) !important; color: var(--text-secondary) !important; }
+
+/* BUTTON SYSTEMS */
+.stButton > button { background: var(--grad-brand) !important; color: #FFFFFF !important; font-weight: 700 !important; border: none !important; border-radius: var(--radius-md) !important; padding: 0.65rem 1.5rem !important; transition: all 0.2s ease !important; width: 100% !important; }
+.stButton > button:hover { transform: translateY(-2px) !important; filter: brightness(1.05) !important; }
+.stDownloadButton > button { background: transparent !important; color: var(--blue-light) !important; border: 1px solid rgba(59,130,246,0.25) !important; }
+
+.ez-divider { border: none; border-top: 1px solid var(--border-soft); margin: 1.2rem 0; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0 1rem; }
+.chip { background: var(--bg-elevated); border: 1px solid var(--border-soft); border-radius: 20px; padding: 0.25rem 0.7rem; font-size: 0.73rem; font-weight: 500; color: var(--text-muted); }
+.log-item { display: flex; align-items: center; gap: 0.6rem; background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: 0.6rem 0.85rem; margin-bottom: 0.4rem; }
+.log-subj { background: rgba(99,102,241,0.1); color: #818CF8; border-radius: 6px; padding: 0.1rem 0.45rem; font-size: 0.68rem; font-weight: 700; }
+.log-text { font-size: 0.78rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 </style>
 """, unsafe_allow_html=True)
-# ─── AI ENGINE CONNECTION ─────────────────────────────────────────────────────
+
+# ==============================================================================
+# 3. GEMINI CLIENT ROBUST INITIALIZATION
+# ==============================================================================
 @st.cache_resource(show_spinner=False)
-def initialize_ai():
-    try:
-        api_key = st.secrets.get("GEMINI_API_KEY")
-        if not api_key: return None
-        return genai.Client(api_key=api_key)
-    except Exception:
-        return None
-def ask_gemini(client, user_prompt, system_prompt, json_mode=False):
-    try:
-        config_args = {
-            "system_instruction": system_prompt,
-            "temperature": 0.7,
-        }
-        if json_mode:
-            config_args["response_mime_type"] = "application/json"
-           
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=user_prompt,
-            config=types.GenerateContentConfig(**config_args)
-        )
-        return response.text
-    except Exception as e:
-        return f"🚨 API Error: {str(e)}"
-# ─── STATE MANAGEMENT ─────────────────────────────────────────────────────────
-if "active_tab" not in st.session_state: st.session_state.active_tab = "home"
-if "chat_history" not in st.session_state: st.session_state.chat_history = []
-if "mistake_vault" not in st.session_state: st.session_state.mistake_vault = []
-if "quiz_state" not in st.session_state: st.session_state.quiz_state = {}
-if "stats" not in st.session_state: st.session_state.stats = {"questions": 0, "fixed": 0, "quizzes_taken": 0, "score": 0}
-# ─── HEADER ───────────────────────────────────────────────────────────────────
-client = initialize_ai()
-status_html = "<span class='status-badge'><div class='pulse-dot'></div> Live</span>" if client else "<span class='status-badge error'><div class='pulse-dot'></div> No Key</span>"
+def get_client():
+   """Initialize Gemini client safely across multiple setup styles."""
+   api_key = None
+   try:
+       api_key = st.secrets["GEMINI_API_KEY"]
+   except Exception:
+       pass
+   if not api_key:
+       api_key = os.environ.get("GEMINI_API_KEY", "")
+   if not api_key:
+       return None
+   try:
+       return genai.Client(api_key=api_key)
+   except Exception:
+       return None
+
+def call_gemini(client, prompt: str, system: str, temperature: float = 0.7) -> dict:
+   """Dispatches payload to Model Endpoint returning operational statuses."""
+   try:
+       response = client.models.generate_content(
+           model="gemini-1.5-flash",
+           contents=prompt,
+           config=types.GenerateContentConfig(
+               system_instruction=system,
+               temperature=temperature,
+               max_output_tokens=2048,
+           ),
+       )
+       return {"ok": True, "text": response.text}
+   except Exception as e:
+       err = str(e)
+       if "429" in err or "RESOURCE_EXHAUSTED" in err or "quota" in err.lower():
+           wait = "60"
+           for part in err.split():
+               if part.replace(".", "").isdigit():
+                   wait = str(int(float(part)))
+                   break
+           return {"ok": False, "kind": "rate_limit", "wait": wait}
+       return {"ok": False, "kind": "error", "msg": err[:200]}
+
+def show_api_result(result: dict):
+   """Render AI output container utilizing native markdown layers properly."""
+   if result["ok"]:
+       st.markdown("""
+       <div class='result-wrap'>
+           <div class='result-header'>
+               <div class='result-icon'></div>
+               <div class='result-title'>AI Response</div>
+           </div>
+       """, unsafe_allow_html=True)
+       st.markdown(result['text'])
+       st.markdown("</div>", unsafe_allow_html=True)
+   elif result["kind"] == "rate_limit":
+       st.markdown(f"""
+       <div class='alert-rate'>
+           <div class='alert-rate-title'>Rate Limit Reached</div>
+           <div class='alert-rate-body'>
+               You've hit the free-tier limit (15 requests/minute).<br>
+               <b>Please wait ~ {result.get('wait', '60')} seconds</b> and try again.<br><br>
+               <b>Tip:</b> This is an organic API constraint that updates auto-hourly.
+           </div>
+       </div>
+       """, unsafe_allow_html=True)
+   else:
+       st.markdown(f"""
+       <div class='alert-err'>
+           <div class='alert-err-title'>⚠️ Something went wrong</div>
+           {result.get('msg', 'Unknown error processing logic')}
+       </div>
+       """, unsafe_allow_html=True)
+
+# ==============================================================================
+# 4. SYSTEM PROMPTS CAREFULLY ENGINEERED
+# ==============================================================================
+MENTOR_SYSTEM = """You are Arya, an elite JEE/NEET mentor with 15+ years of top IIT coaching experience.
+RESPONSE STRUCTURE:
+1. **Real-World Analogy** in bold text.
+2. **The Concept** clear presentation.
+3. **Formula / Key Rule** breakdown equations cleanly.
+4. **Common Mistake** conceptual errors.
+5. **Exam Tip** specific focus hooks.
+Keep tone warm, clear, encouraging. Only clear topics within Math, Physics, Bio, and Chemistry."""
+
+CORRECTIFY_SYSTEM = """You are CorrectifyAI, a world-class JEE/NEET mistake diagnostician.
+Produce EXACTLY this structure layout:
+## Root Error
+## Why This Is Wrong
+## Correct Approach
+## Topic to Revise
+## Memory Hook"""
+
+TIMETABLE_SYSTEM = """You are PlannerAI, a strategic JEE/NEET revision planner using spaced repetition blocks.
+Create a personalized structured revision timeline output matching the hourly limits requested."""
+
+# ==============================================================================
+# 5. SESSION STATE
+# ==============================================================================
+defaults = {
+   "mentor_history": [],
+   "mistake_log": [],
+}
+for k, v in defaults.items():
+   if k not in st.session_state:
+       st.session_state[k] = v
+
+# ==============================================================================
+# 6. APP GLOBAL HEADER
+# ==============================================================================
+client = get_client()
+if client:
+   status_html = "<div class='ez-status'><span class='ez-status-dot'></span>AI Live</div>"
+else:
+   status_html = "<div class='ez-status ez-status-err'><span class='ez-status-dot'></span>No Key</div>"
+
 st.markdown(f"""
-<div class='top-header'>
-    <div class='logo-text'>⚛️ ExamZen</div>
-    <div>{status_html}</div>
+<div class='ez-header'>
+   <div class='ez-logo'>
+       <div class='ez-logo-icon'>🎓</div>
+       <div class='ez-logo-text'>Exam<span>Zen</span></div>
+   </div>
+   {status_html}
 </div>
 """, unsafe_allow_html=True)
-# ─── 5-TAB NAVIGATION OVERLAY ─────────────────────────────────────────────────
-tabs = [
-    ("home", "🏠", "Home"),
-    ("mentor", "🧑‍🏫", "Mentor"),
-    ("fixer", "🔬", "Fixer"),
-    ("quiz", "⚡", "Quiz"),
-    ("dash", "📊", "Vault")
-]
-nav_ui = "<div class='bottom-nav-container'>"
-for tab_id, icon, label in tabs:
-    active_class = "active" if st.session_state.active_tab == tab_id else ""
-    nav_ui += f"<div class='nav-btn {active_class}'><span class='nav-icon'>{icon}</span><span class='nav-text'>{label}</span></div>"
-nav_ui += "</div>"
-st.markdown(nav_ui, unsafe_allow_html=True)
-st.markdown("<div class='click-overlay'>", unsafe_allow_html=True)
-cols = st.columns(5)
-for i, (tab_id, _, _) in enumerate(tabs):
-    with cols[i]:
-        if st.button(" ", key=f"nav_{tab_id}", use_container_width=True):
-            st.session_state.active_tab = tab_id
-            st.rerun()
-st.markdown("</div>", unsafe_allow_html=True)
-current_tab = st.session_state.active_tab
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 1: HOME DASHBOARD
-# ══════════════════════════════════════════════════════════════════════════════
-if current_tab == "home":
-    st.markdown("<div class='hero-title'>Master JEE & NEET<br><span style='color:var(--primary)'>with AI.</span></div>", unsafe_allow_html=True)
-    st.markdown("<div class='hero-subtitle'>Your ultimate study ecosystem. Chat, diagnose, test, and plan — all in your pocket.</div>", unsafe_allow_html=True)
+
+# ==============================================================================
+# 7. MAIN INTERFACE SYSTEM
+# ==============================================================================
+tab_home, tab_mentor, tab_fix, tab_plan = st.tabs(["Home", "Mentor", "Correctify", "Planner"])
+
+# --- TAB 1: HOME ---
+with tab_home:
+   st.markdown("""
+   <div class='hero-wrap'>
+       <div class='hero-badge'>AI-Powered Hub</div>
+       <div class='hero-h1'>Free JEE & NEET<br>Study Smarter. <span class='grad'>Score Higher.</span></div>
+       <p class='hero-p'>Your customized dashboard providing elite strategic coaching routines instantly.</p>
+       <div class='hero-pills'>
+           <span class='hero-pill'>Physics</span>
+           <span class='hero-pill'>Chemistry</span>
+           <span class='hero-pill'>Biology</span>
+           <span class='hero-pill'>Mathematics</span>
+       </div>
+   </div>
+   <div class='fcard-grid'>
+       <div class='fcard fcard-1'>
+           <div class='fcard-icon-wrap'>💡</div>
+           <div class='fcard-content'>
+               <div class='fcard-tag'>Arya Mentor</div>
+               <div class='fcard-name'>Concept Explainer</div>
+               <div class='fcard-desc'>Ask conceptual problems and receive structured breakdowns with analogies.</div>
+           </div>
+       </div>
+       <div class='fcard fcard-2'>
+           <div class='fcard-icon-wrap'>🎯</div>
+           <div class='fcard-content'>
+               <div class='fcard-tag'>Correctify</div>
+               <div class='fcard-name'>Mistake Fixer</div>
+               <div class='fcard-desc'>Submit errors or answers to systematically resolve structural flaws.</div>
+           </div>
+       </div>
+       <div class='fcard fcard-3'>
+           <div class='fcard-icon-wrap'>📅</div>
+           <div class='fcard-content'>
+               <div class='fcard-tag'>Planner</div>
+               <div class='fcard-name'>7-Day Timetable</div>
+               <div class='fcard-desc'>Construct tailored weekly programs targeting structural weak points.</div>
+           </div>
+       </div>
+   </div>
+   """, unsafe_allow_html=True)
    
-    # Quick Stats
-    st.markdown(f"""
-    <div class='stats-grid'>
-        <div class='stat-box'><div class='stat-num' style='color:var(--primary)'>{st.session_state.stats['questions']}</div><div class='stat-label'>Qs Asked</div></div>
-        <div class='stat-box'><div class='stat-num' style='color:var(--secondary)'>{st.session_state.stats['fixed']}</div><div class='stat-label'>Errors Fixed</div></div>
-        <div class='stat-box'><div class='stat-num' style='color:var(--success)'>{st.session_state.stats['quizzes_taken']}</div><div class='stat-label'>Quizzes Done</div></div>
-    </div>
-    """, unsafe_allow_html=True)
+   if not client:
+       st.markdown("""
+       <div class='alert-err'>
+           <div class='alert-err-title'>🔑 API Key Required</div>
+           Please map your credentials within Streamlit environment spaces to access backend layers.
+       </div>
+       """, unsafe_allow_html=True)
+
+# --- TAB 2: MENTOR CHAT ---
+with tab_mentor:
+   st.markdown("""
+   <div class='sec-label'>AI Mentor Concept Clarity</div>
+   <div class='sec-title'>Arya Mentor</div>
+   <div class='sec-sub'>Ask any JEE/NEET foundational framework to receive optimized insights.</div>
+   <div class='chip-row'>
+       <span class='chip'>Newton's Laws</span><span class='chip'>Gauss's Law</span>
+       <span class='chip'>Thermodynamics</span><span class='chip'>Chemical Bonding</span>
+   </div>
+   <hr class='ez-divider'>
+   """, unsafe_allow_html=True)
    
-    st.markdown("""
-    <div class='glass-card'>
-        <h3 style='margin:0 0 5px 0; color: #38BDF8; font-size: 1.1rem;'>🧑‍🏫 Interactive Mentor</h3>
-        <p style='color: var(--muted); font-size: 0.85rem; margin:0;'>Chat with Arya. Explains complex physics and chemistry using real-world analogies.</p>
-    </div>
-    <div class='glass-card' style='animation-delay: 0.1s;'>
-        <h3 style='margin:0 0 5px 0; color: #818CF8; font-size: 1.1rem;'>🔬 Deep Correctify</h3>
-        <p style='color: var(--muted); font-size: 0.85rem; margin:0;'>Paste your wrong answer. The AI pinpoints your exact conceptual misunderstanding.</p>
-    </div>
-    <div class='glass-card' style='animation-delay: 0.2s;'>
-        <h3 style='margin:0 0 5px 0; color: #10B981; font-size: 1.1rem;'>⚡ Infinite Quizzes</h3>
-        <p style='color: var(--muted); font-size: 0.85rem; margin:0;'>Generate custom MCQs on any topic instantly and get real-time AI grading.</p>
-    </div>
-    """, unsafe_allow_html=True)
-   
-    if not client: st.error("⚠️ Setup Required: Add your GEMINI_API_KEY in the app secrets.")
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 2: MENTOR
-# ══════════════════════════════════════════════════════════════════════════════
-elif current_tab == "mentor":
-    st.markdown("<h2 style='color: white; margin:0;'>Arya Mentor 🧑‍🏫</h2><p style='color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem;'>Your 24/7 personal IITian tutor.</p>", unsafe_allow_html=True)
-   
-    if not client: st.error("API Key required.")
-    else:
-        for msg in st.session_state.chat_history:
-            if msg["role"] == "user": st.markdown(f"<div class='chat-user'>{msg['content']}</div>", unsafe_allow_html=True)
-            else: st.markdown(f"<div class='chat-ai'><span class='chat-avatar'>⚡</span>{msg['content']}</div>", unsafe_allow_html=True)
+   if not client:
+       st.markdown("<div class='alert-err'>API Key missing inside your configurations setup.</div>", unsafe_allow_html=True)
+   else:
+       # Render clean feed rows
+       for msg in st.session_state.mentor_history:
+           if msg["role"] == "user":
+               st.markdown(f"<div class='msg-row-user'><div class='msg-bubble-user'>{msg['content']}</div></div>", unsafe_allow_html=True)
+           else:
+               st.markdown("<div class='msg-row-ai'><div class='msg-avatar'></div><div class='msg-bubble-ai-wrap'>", unsafe_allow_html=True)
+               st.markdown(msg['content'])
+               st.markdown("</div></div>", unsafe_allow_html=True)
        
-        user_q = st.chat_input("Ask about Mechanics, Organic Chem, Genetics...")
+       user_input = st.chat_input("Ask Arya anything...")
+       if user_input:
+           stripped = user_input.strip()
+           if len(stripped) >= 4:
+               st.session_state.mentor_history.append({"role": "user", "content": stripped})
+               with st.spinner("Arya planning response..."):
+                   result = call_gemini(client, stripped, MENTOR_SYSTEM, 0.65)
+                   if result["ok"]:
+                       st.session_state.mentor_history.append({"role": "assistant", "content": result["text"]})
+                       st.rerun()
+                   else:
+                       show_api_result(result)
+
+       if st.session_state.mentor_history:
+           if st.button("Clear History"):
+               st.session_state.mentor_history = []
+               st.rerun()
+
+# --- TAB 3: CORRECTIFY ---
+with tab_fix:
+   st.markdown("""
+   <div class='sec-label'>Error Diagnosis Mistake Log</div>
+   <div class='sec-title'>Correctify AI</div>
+   <div class='sec-sub'>Deconstruct incorrect analytical reasoning to diagnose process bottlenecks.</div>
+   """, unsafe_allow_html=True)
+   
+   if not client:
+       st.markdown("<div class='alert-err'>Active deployment key needed.</div>", unsafe_allow_html=True)
+   else:
+       subject = st.selectbox("Subject Track", ["Physics", "Chemistry", "Biology", "Mathematics"])
+       question_text = st.text_area("The Original Problem Framework", placeholder="Input root premise details...", height=85)
+       wrong_answer = st.text_area("Your Mistaken Logic Chain (Required)", placeholder="Trace structural process path or blindspots...", height=130)
        
-        if user_q:
-            st.session_state.chat_history.append({"role": "user", "content": user_q})
-            st.session_state.stats['questions'] += 1
-            st.markdown(f"<div class='chat-user'>{user_q}</div>", unsafe_allow_html=True)
-           
-            with st.spinner("Arya is analyzing..."):
-                sys_prompt = "You are Arya, an elite JEE/NEET tutor. 1. Use ONE vivid real-world analogy. 2. Explain the core concept. 3. Provide the formula if applicable. 4. Give one 'Exam Trap' warning. Format neatly with Markdown."
-                reply = ask_gemini(client, user_q, sys_prompt)
-               
-            st.session_state.chat_history.append({"role": "assistant", "content": reply})
-            st.rerun()
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 3: FIXER
-# ══════════════════════════════════════════════════════════════════════════════
-elif current_tab == "fixer":
-    st.markdown("<h2 style='color: white; margin:0;'>Correctify 🔬</h2><p style='color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem;'>Find the exact gap in your logic.</p>", unsafe_allow_html=True)
+       if st.button("Diagnose My Mistake", key="diagnose_btn"):
+           if not wrong_answer.strip():
+               st.error("Please supply baseline process notes to review.")
+           else:
+               prompt = f"Subject: {subject}\nQuestion Context: {question_text}\nStudent Process: {wrong_answer}"
+               with st.spinner("Analyzing operational logic errors..."):
+                   result = call_gemini(client, prompt, CORRECTIFY_SYSTEM, 0.35)
+                   show_api_result(result)
+                   if result["ok"]:
+                       st.session_state.mistake_log.append({"subject": subject, "preview": wrong_answer.strip()[:50]})
+
+       if st.session_state.mistake_log:
+           st.markdown("<hr class='ez-divider'><h5>Session Log</h5>", unsafe_allow_html=True)
+           for i, entry in enumerate(reversed(st.session_state.mistake_log)):
+               st.markdown(f"<div class='log-item'><span class='log-subj'>{entry['subject']}</span> <span class='log-text'>{entry['preview']}...</span></div>", unsafe_allow_html=True)
+
+# --- TAB 4: PLANNER ---
+with tab_plan:
+   st.markdown("""
+   <div class='sec-label'>Smart Revision Architecture</div>
+   <div class='sec-title'>7-Day Planner</div>
+   """, unsafe_allow_html=True)
    
-    if not client: st.error("API Key required.")
-    else:
-        q_text = st.text_area("The Question", placeholder="Paste the original question here...")
-        ans_text = st.text_area("Your Wrong Answer / Reasoning ✱", placeholder="Explain how you tried to solve it. E.g., 'I used v=u+at but got the wrong sign for gravity.'")
+   if not client:
+       st.markdown("<div class='alert-err'>Provide backend environment profiles to track calendars.</div>", unsafe_allow_html=True)
+   else:
+       exam_target = st.selectbox("Target Milestone Focus", ["JEE Main", "JEE Advanced", "NEET UG"])
+       weak_topics = st.text_area("Weak Target Domains (Comma-Separated)", placeholder="Topics needing algorithmic optimization...")
+       strong_topics = st.text_area("Strong Consolidations", placeholder="Light systemic sync maintenance...")
+       daily_hours = st.select_slider("Daily Focus Window allocation", options=[4, 6, 8, 10, 12], value=6)
        
-        if st.button("Diagnose Logic Error"):
-            if not ans_text: st.warning("Please enter your wrong reasoning!")
-            else:
-                with st.spinner("Scanning your logic..."):
-                    sys = "You are a diagnostic tutor for JEE/NEET. 1) Pinpoint the exact logical error. 2) Show the correct step-by-step approach. 3) Provide a Memory Hook to never forget this. Use clear headings."
-                    prompt = f"Question: {q_text}\nStudent's attempt: {ans_text}"
-                    result = ask_gemini(client, prompt, sys)
-               
-                st.session_state.stats['fixed'] += 1
-                st.session_state.mistake_vault.append({"date": datetime.now().strftime("%b %d"), "topic": q_text[:30]+"...", "fix": result})
-                st.balloons()
-                st.markdown(f"<div class='glass-card' style='border-top: 3px solid var(--success);'>{result}</div>", unsafe_allow_html=True)
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 4: QUICK QUIZ (NEW)
-# ══════════════════════════════════════════════════════════════════════════════
-elif current_tab == "quiz":
-    st.markdown("<h2 style='color: white; margin:0;'>QuickQuiz ⚡</h2><p style='color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem;'>Generate instant MCQs on any topic.</p>", unsafe_allow_html=True)
-   
-    if not client: st.error("API Key required.")
-    else:
-        topic = st.text_input("Enter Topic to Test", placeholder="e.g. Bohr's Atomic Model")
-        if st.button("Generate Mini-Test"):
-            if not topic: st.warning("Enter a topic first!")
-            else:
-                with st.spinner("Generating targeted questions..."):
-                    sys = """You are a JEE/NEET examiner. Generate EXACTLY 3 multiple choice questions on the requested topic.
-                    Return ONLY a valid JSON array of objects. Schema:
-                    [{"q": "Question text", "options": ["A", "B", "C", "D"], "correct_idx": 0, "explanation": "Why this is correct."}]"""
-                    raw_json = ask_gemini(client, topic, sys, json_mode=True)
-                    try:
-                        q_data = json.loads(raw_json)
-                        st.session_state.quiz_state = {"active": True, "data": q_data, "submitted": False, "score": 0, "answers": [0,0,0]}
-                        st.session_state.stats['quizzes_taken'] += 1
-                        st.rerun()
-                    except:
-                        st.error("Failed to generate quiz. Try a different topic.")
-       
-        qs = st.session_state.quiz_state
-        if qs.get("active"):
-            st.markdown("<hr>", unsafe_allow_html=True)
-            with st.form("quiz_form"):
-                for i, q in enumerate(qs["data"]):
-                    st.markdown(f"<div class='quiz-badge'>Question {i+1}</div>", unsafe_allow_html=True)
-                    st.markdown(f"<h4 style='color:white;'>{q['q']}</h4>", unsafe_allow_html=True)
-                    qs["answers"][i] = st.radio(f"Select answer for Q{i+1}", q["options"], key=f"q_{i}", label_visibility="collapsed")
-                    st.markdown("<br>", unsafe_allow_html=True)
-               
-                if st.form_submit_button("Submit Answers"):
-                    qs["submitted"] = True
-                    st.rerun()
-           
-            if qs.get("submitted"):
-                st.markdown("### 📝 Results")
-                score = 0
-                for i, q in enumerate(qs["data"]):
-                    student_ans = qs["answers"][i]
-                    correct_ans = q["options"][q["correct_idx"]]
-                    if student_ans == correct_ans:
-                        score += 1
-                        st.success(f"**Q{i+1}: Correct!** {q['explanation']}")
-                    else:
-                        st.error(f"**Q{i+1}: Incorrect.** You chose {student_ans}. Correct was {correct_ans}. \n\n*Explanation:* {q['explanation']}")
-                st.info(f"🏆 Final Score: {score}/3")
-                if st.button("Reset Quiz"):
-                    st.session_state.quiz_state = {}
-                    st.rerun()
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE 5: PLANNER & VAULT
-# ══════════════════════════════════════════════════════════════════════════════
-elif current_tab == "dash":
-    st.markdown("<h2 style='color: white; margin:0;'>Dashboard 📊</h2><p style='color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem;'>Your Planner and Mistake Vault.</p>", unsafe_allow_html=True)
-   
-    tab1, tab2 = st.tabs(["📅 Timetable", "🗄️ Mistake Vault"])
-   
-    with tab1:
-        st.markdown("#### Smart Schedule Generator")
-        exam = st.selectbox("Exam", ["JEE Main", "NEET UG", "JEE Advanced"], label_visibility="collapsed")
-        weak_t = st.text_area("Weak Topics", placeholder="e.g. Fluids, Integration")
-        if st.button("Create 7-Day Plan"):
-            if not weak_t: st.warning("Enter weak topics.")
-            else:
-                with st.spinner("Optimizing schedule..."):
-                    sys = "Act as a JEE/NEET study planner. Output a beautiful Markdown table for a 7-day study plan focusing heavily on the provided weak topics using spaced repetition."
-                    plan = ask_gemini(client, f"Exam: {exam}. Focus: {weak_t}.", sys)
-                st.markdown(f"<div class='glass-card'>{plan}</div>", unsafe_allow_html=True)
-               
-    with tab2:
-        st.markdown("#### Logged Mistakes")
-        if not st.session_state.mistake_vault:
-            st.info("You haven't logged any mistakes yet. Use the Fixer tool to populate this vault!")
-        else:
-            for entry in reversed(st.session_state.mistake_vault):
-                with st.expander(f"🔴 {entry['date']} - {entry['topic']}"):
-                    st.markdown(entry["fix"])
-            if st.button("Clear Vault"):
-                st.session_state.mistake_vault = []
-                st.rerun()
+       if st.button("Generate My 7-Day Plan"):
+           if not weak_topics.strip():
+               st.error("Please insert focus fields to structure routine paths.")
+           else:
+               prompt = f"Target: {exam_target}\nWeak points: {weak_topics}\nStrong areas: {strong_topics}\nHours: {daily_hours}"
+               with st.spinner("Assembling scheduling matrices..."):
+                   result = call_gemini(client, prompt, TIMETABLE_SYSTEM, 0.5)
+                   show_api_result(result)
+                   if result["ok"]:
+                       st.download_button("Download Strategy File (.txt)", data=result["text"], file_name="study_plan.txt")
